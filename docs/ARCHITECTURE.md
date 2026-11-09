@@ -2,7 +2,7 @@
 
 ## The path of one invoice
 `POST /v1/invoices` -> `api.py` (auth, limits) -> `pipeline.process_document`:
-file check by content -> hash = document id -> already seen? return stored result -> quota -> `extractor` (Claude reads it; at most N at once, overall deadline) -> `policy.normalize_invoice` / `apply_policy` (clean-up, currency, dates) -> `validator.validate_invoice` (math) -> duplicate check -> store -> `review_queue.enqueue` if anything was found -> usage metering.
+file check by content -> hash = document id -> already seen? return stored result -> quota -> `extractor` (the configured reader: hosted LLM provider or local rules; at most N at once, overall deadline) -> `policy.normalize_invoice` / `apply_policy` (clean-up, currency, dates) -> `validator.validate_invoice` (math) -> duplicate check -> store -> `review_queue.enqueue` if anything was found -> usage metering.
 
 ## Modules
 | Module | Responsibility | Depends on |
@@ -15,7 +15,7 @@ file check by content -> hash = document id -> already seen? return stored resul
 | `review_queue.py` | Review items, states, Slack/email formatting | nothing (stdlib) |
 | `store.py` | Processed invoices, duplicates, CSV, purge | review_queue, migrate |
 | `tenants.py` | Customers, key hashes, settings, usage | migrate |
-| `backup.py`, `doctor.py`, `evaluation.py`, `onboarding.py`, `economics.py` | Operations | the above |
+| `backup.py`, `doctor.py`, `evaluation.py`, `onboarding.py` | Operations | the above |
 | `cli.py` | Commands | everything |
 
 ## Decisions
@@ -38,7 +38,7 @@ data/
 ```
 
 ## Failure behavior
-- Provider down or slow: upload fails with `extraction_failed`; nothing stored, nothing charged.
+- Provider down or slow: upload fails with `extraction_failed`; nothing stored, nothing counted.
 - Too many simultaneous reads: `server_busy`; nothing stored.
 - Crash mid-upload: the file may exist without a database row; harmless, it is re-processed on the next upload.
 - Slack down: items stay `open` and un-notified; the next dispatch retries.

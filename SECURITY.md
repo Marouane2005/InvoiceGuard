@@ -11,7 +11,7 @@ What the service does to protect customer data, and what it does not do yet.
 - **Abuse limits.** Wrong API keys or admin tokens lock the sending address out for a minute after a set number of failures (default 20 per minute). The number of invoices being read by the AI at once is capped, and provider retries stop after an overall deadline, so one client cannot run up your provider bill or tie up the server.
 - **Logs.** One JSON line per request: time, method, path, status, duration, request id, customer id. No query strings, headers, keys, or invoice contents. Unexpected errors log only the error type and request id.
 - **Backups** are single files with owner-only permissions, restore never overwrites, and archives with unsafe paths or links are refused. Databases are integrity-checked on backup and restore.
-- **Erasure.** `erase-tenant` removes a customer's invoices, files and review items and switches the account off (dry run by default). Usage counts without invoice content are kept for billing.
+- **Erasure.** `erase-tenant` removes a customer's invoices, files and review items and switches the account off (dry run by default). Usage counts without invoice content are kept for usage reporting.
 - **Safe upgrades.** Database schemas are versioned; a database written by a newer version is refused instead of being altered.
 - **Proxy behaviour was tested with the real Caddy**, not assumed: the admin rule returns 404 to other addresses even with the right token, uploads over the limit are refused, and a spoofed `X-Forwarded-For` is overwritten so it cannot be used to dodge the lockout (`scripts/proxy_check.py`).
 - **Admin surface closed by default.** In the production setup `/admin/*` (customer accounts, metrics) answers 404 to the internet unless you list your own address in `ADMIN_ALLOW`; the admin token still applies on top.
@@ -25,13 +25,13 @@ What the service does to protect customer data, and what it does not do yet.
 - **CSV export** neutralizes spreadsheet formulas (`=`, `+`, `-`, `@` at the start of text).
 - **Prompt injection.** The reading step is told to treat text inside invoices as data, and its output is checked by code. A hostile invoice can at worst produce wrong numbers that the checks or a reviewer catch. It cannot trigger an action, because the reader has no tools beyond recording the invoice.
 
-## Not in place (decide before selling to larger customers)
+## Not in place (decide before running this for larger organisations)
 - No single sign-on, per-user accounts, or role permissions. Each customer has one API key.
 - No encryption of stored files, databases, or backup files beyond what the disk or hosting provider offers. Use an encrypted volume and encrypt backups before copying them off the server.
 - Rate limits and lockouts are in memory and per process. Run one process. Behind a proxy, set `INVOICEGUARD_TRUST_PROXY=1` or all customers share one address.
 - A lockout applies to an address, so several staff behind one office address share it.
 - SQLite is a single-machine database. Running several replicas against one data folder is not supported.
 - No audit log of who viewed what. Review actions are recorded with the reviewer's name and note.
-- No independent security review or penetration test has been done. Invoice images and PDFs are sent to the AI provider; customers must be told this in your terms and privacy policy.
+- No independent security review or penetration test has been done. With the hosted reader, invoice images and PDFs are sent to the extraction provider; tell the people whose invoices you process.
 
 Report a vulnerability by contacting the maintainer privately rather than opening a public issue.

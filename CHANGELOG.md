@@ -1,8 +1,11 @@
 # Changelog
 
+## Unreleased
+- InvoiceGuard is now open source under the MIT License.
+- Removed the `billing` and `economics` commands and the legal and launch templates. `usage` still reports documents and tokens per account.
+
 ## 1.4.2 (2026-11-08)
 Checked by running the suite on Python 3.12.3. This is not an accuracy claim.
-- An unused internal tooling folder, its sync script, and an old demo report were removed. The optional Claude reader, `ANTHROPIC_API_KEY`, and the deploy configuration are unchanged.
 - Fix: `eval_cases/sample-001.expected.json` now includes `ocr_warnings`, so `invoiceguard validate` accepts the shipped sample.
 - Fix: accepting a corrected invoice clears the old issue list. The previous text was left in place and could still say the total was the uncorrected number.
 - Fix: `invoiceguard doctor` treats `http://localhost` and `http://127.0.0.1` as a local warning. Any other non-https address still fails the check.
@@ -22,11 +25,10 @@ Verification release: turning "untested" into "tested" wherever the tools could 
 - `make security` installs `pip-audit` itself, and says so plainly if it is missing (found when a clean clone failed with a confusing error).
 
 ## 1.4.0 (2026-10-27)
-Release pipeline and the last planned skills.
-- **GitHub pipeline:** a `release` workflow that runs only when you push a version tag (checks that tag, code version and release notes agree, reruns tests and the dependency audit, then publishes a private container image to GitHub's registry and creates a GitHub Release from this changelog); issue and pull-request templates that warn against pasting customer data; `CODEOWNERS`; read-only default permissions in every workflow; actions pinned to major versions; `docs/GITHUB_SETUP.md` for the steps only the account owner can do (private repo, secret scanning, branch protection, first CI run).
+Release pipeline and security review tooling.
+- **GitHub pipeline:** a `release` workflow that runs only when you push a version tag (checks that tag, code version and release notes agree, reruns tests and the dependency audit, then publishes a private container image to GitHub's registry and creates a GitHub Release from this changelog); issue and pull-request templates that warn against pasting personal data; `CODEOWNERS`; read-only default permissions in every workflow; actions pinned to major versions; `docs/GITHUB_SETUP.md` for repository settings (secret scanning, branch protection, first CI run).
 - **Security review tool:** `make security` runs 14 automated checks (no keys or databases tracked, non-root container, only the proxy publishes ports, admin closed at the proxy, pinned dependencies, safe defaults, security headers, errors that reveal nothing) plus `pip-audit`.
-- **Skills (14 total):** `sales-materials` with a claims checker that flags absolute promises, certifications we do not hold, invented social proof, and numbers not found in a measured report; `design-partner-feedback` with a transparent ranking (different customers, then blocking, then impact; labelled "anecdotes" under 3 customers); `security-review`.
-- **Fixes found by tests:** the release-notes script treated version `1.0` as `1.0.0`; the claims checker must not accept 97% when the evidence says 97.5%.
+- **Fixes found by tests:** the release-notes script treated version `1.0` as `1.0.0`.
 
 ## 1.3.0 (2026-10-27)
 Making it usable day to day, and checkable by a customer's IT team.
@@ -41,21 +43,17 @@ Making it usable day to day, and checkable by a customer's IT team.
 
 ## 1.2.0 (2026-10-25)
 - **Custom CSV export per customer** (column names and order, date format, decimal mark, delimiter, fixed columns such as account codes, Excel byte-order mark) so exports match a customer's accounting import file. Set by the customer (`PATCH /v1/settings`) or the operator (`set-export-template`); `template-check` previews with invented data. First use of the schema migration system: customer accounts upgrade in place (database version 1 to 2), covered by an upgrade test on a real version-1 database.
-- **Billing drafts:** `invoiceguard billing` (exact decimal money, half-up rounding; drafts only, nothing is sent or charged).
 - **Support tools:** `trace` (find a request by id), `show`, and `export-case`, which turns a reviewer-confirmed invoice into an accuracy test case and requires `--permission-confirmed`.
-- **Skills:** added `accounting-export-mapper`, `support-triage`, `billing-run` (11 total).
-- **Rehearsal** (`scripts/release_smoke.py`) now covers templates, tracing, case export, billing and lockout isolation: 33 steps against the real server process from a clean install. It found that a lockout blocks every client behind the same address for a minute (by design, and noted in `SECURITY.md`), which is why the proxy setting matters.
+- **Rehearsal** (`scripts/release_smoke.py`) now covers templates, tracing, case export and lockout isolation: 33 steps against the real server process from a clean install. It found that a lockout blocks every client behind the same address for a minute (by design, and noted in `SECURITY.md`), which is why the proxy setting matters.
 - **Fixes found by tests:** exports within the same second now keep arrival order (previously ordered by file hash); money rounds half-up exactly (previously `1234.5` with 0 decimals exported as `1234`).
 
 ## 1.1.0 (2026-10-25)
 Release-readiness work.
 - **Safety:** `backup` and `restore` (consistent online backups; restore never overwrites and refuses unsafe archives); `erase-tenant` (dry run by default); versioned database schema with refusal to open a newer database; `doctor` preflight.
-- **Abuse and cost:** failed-key lockout per client address (also for the admin token); cap on simultaneous AI reads; overall deadline on provider retries.
-- **Operations:** `/readyz`; one JSON log line per request with no content, keys or query strings; clean 500 responses with a request id; production deployment with automatic HTTPS (`docker-compose.prod.yml`, `deploy/Caddyfile`); runbook, architecture notes, launch plan.
+- **Abuse and load:** failed-key lockout per client address (also for the admin token); cap on simultaneous AI reads; overall deadline on provider retries.
+- **Operations:** `/readyz`; one JSON log line per request with no content, keys or query strings; clean 500 responses with a request id; production deployment with automatic HTTPS (`docker-compose.prod.yml`, `deploy/Caddyfile`); runbook and architecture notes.
 - **Rehearsal:** `scripts/release_smoke.py` runs the whole customer journey against the real server process with a stand-in provider (23 steps, no key needed); CI runs it from a clean install.
-- **Selling:** `eval` measures how often a wrong invoice passes every check; `onboard` drafts a welcome message (nothing is sent); `usage --csv` for billing; `economics` for pricing.
-- **Legal:** templates for terms, privacy policy and data processing agreement (not legal advice; need a lawyer).
-- **Skills:** added `accuracy-evaluation`, `customer-onboarding`, `release-checklist` (8 total).
+- **Accuracy and accounts:** `eval` measures how often a wrong invoice passes every check; `onboard` drafts a welcome note (nothing is sent); `usage --csv`.
 - **Fixes found by tests:** the validator no longer reports a false "line items sum to 0.00" next to a missing total; Slack and email titles show vendor, number and total; evaluation no longer counts `True` as `1.0`.
 - CI now builds the Docker image and checks that it starts and reports ready.
 

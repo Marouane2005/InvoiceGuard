@@ -18,4 +18,3 @@ node_modules/
 eval_cases/*
 !eval_cases/README.md
 !eval_cases/sample-001.*
-feedback/

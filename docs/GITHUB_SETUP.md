@@ -4,20 +4,18 @@ These steps need the GitHub account that owns the repository.
 Menu names change now and then; the idea of each step stays the same.
 
 ## 1. Create the repository and push
-1. github.com, New repository: name `invoiceguard`, **Private**, no README, no .gitignore, no license (it must be empty).
-2. In the unzipped project folder:
+1. github.com, New repository: name `invoiceguard`, **Private** or public, no README, no .gitignore, no license (it must be empty).
+2. In the project folder:
    ```bash
    git remote add origin https://github.com/Marouane2005/invoiceguard.git
    git push -u origin main
    ```
    Log in the normal way (browser or a token you create yourself; type it only into the terminal prompt).
-3. Open the **Actions** tab. The `ci` workflow starts by itself. It has four jobs: `test` (Python 3.11 and 3.12), `audit`, `docker`. All must be green.
-   - If `docker` fails, that is the first time the image was ever built: read its log.
+3. Open the **Actions** tab. The `ci` workflow starts by itself. It has five jobs: `test` (Python 3.11 and 3.12), `lint`, `proxy`, `audit`, `docker`. All must be green.
    - If `test` fails on 3.11 only, the pinned versions were tested on 3.12 only; compare that job's log with the 3.12 run.
 
 ## 2. Turn on the security features (Settings)
 - **Code security**: enable Dependabot alerts, Dependabot security updates, **secret scanning**, and **push protection**. (`.github/dependabot.yml` already asks for weekly update pull requests.)
-- Keep the repository **Private** while it is your product. A public repository gives it away.
 
 ## 3. Protect `main`
 Settings, Branches, add a rule for `main`: require a pull request, require the status checks `test`, `audit` and `docker` to pass, block force pushes. (While you work alone you may allow yourself to bypass; keep the checks required.)

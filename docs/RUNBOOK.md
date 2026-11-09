@@ -1,7 +1,7 @@
 # Runbook
 
 For whoever runs the service. Commands assume `docker compose -f docker-compose.prod.yml` (shortened to `dc` below).
-Commands marked (untested) could not be run in the build environment; try them once on a throwaway server first. The Caddy configuration itself was tested with the real Caddy (`make proxy-check`); only certificate issuance for your domain needs your server.
+Commands marked (untested) have not been tried on a real server yet; try them once on a throwaway server first. The Caddy configuration itself was tested with the real Caddy (`make proxy-check`); only certificate issuance for your domain needs your server.
 
 ## 1. First deploy
 1. A small Linux server with Docker installed. Open ports 80 and 443 only. Close everything else (SSH from your address only).
@@ -16,8 +16,8 @@ Commands marked (untested) could not be run in the build environment; try them o
 ## 2. Customer lifecycle
 - **Onboard:** `dc exec invoiceguard invoiceguard onboard "Acme Ltd" --currency USD --monthly-limit 500`. It prints the key once and a draft welcome message. Send the message and the key in two separate messages. Nothing is sent for you.
 - **Lost or leaked key:** `POST /admin/tenants/{id}/rotate-key` (old key stops working immediately).
-- **Offboard:** let the customer download their CSV, then `invoiceguard erase-tenant --tenant <id>` (dry run), then again with `--confirm`. Billing counts are kept; invoice content is deleted.
-- **Billing:** `invoiceguard usage --month 2026-10 --csv`. Price check: `invoiceguard economics ...`.
+- **Offboard:** let the customer download their CSV, then `invoiceguard erase-tenant --tenant <id>` (dry run), then again with `--confirm`. Usage counts are kept; invoice content is deleted.
+- **Usage report:** `invoiceguard usage --month 2026-10 --csv`.
 
 ## 3. Backups (do this before you have a customer)
 - Daily at 02:15 (untested): `15 2 * * * cd /opt/invoiceguard && docker compose -f docker-compose.prod.yml exec -T invoiceguard invoiceguard backup --dest /backups --keep 14`
@@ -34,7 +34,7 @@ Commands marked (untested) could not be run in the build environment; try them o
 ## 5. When something breaks
 | Symptom | What it means | What to do |
 |---|---|---|
-| Uploads return `extraction_failed` | Provider outage or limits | Nothing is lost or charged. Customers retry later. Check the provider status page |
+| Uploads return `extraction_failed` | Provider outage or limits | Nothing is lost. Retry later. Check the provider status page |
 | `extraction_failed`: "rejected the server's API key" | Your provider key is wrong or out of credit | Fix `ANTHROPIC_API_KEY`, restart |
 | `server_busy` often | More simultaneous uploads than `INVOICEGUARD_MAX_CONCURRENT_READS` | Raise it carefully (check provider limits and cost) |
 | Customers get `rate_limited` right after login problems | Failed-key lockout (1 minute) | Wait; check `INVOICEGUARD_TRUST_PROXY=1` is set behind Caddy |
@@ -51,35 +51,30 @@ Commands marked (untested) could not be run in the build environment; try them o
 3. Apply it: `invoiceguard set-export-template --tenant <id> --file template.json` (`--clear` to undo).
 4. Ask the customer to import one exported file and confirm it worked.
 
-## 8. Monthly billing
-1. After the month ends: `invoiceguard usage --month 2026-10 --csv`.
-2. `invoiceguard billing --month 2026-10 --price-per-document 0.25 --included 100 --base-fee 20 --currency USD --csv` gives draft statements. No tax is included; nothing is sent or charged. You issue the real invoices in your own system.
-3. `invoiceguard economics ...` with the provider's current prices shows whether any customer costs more than they pay.
-
-## 9. Support
+## 8. Support
 1. Ask the customer for the `X-Request-ID` header of the failed call.
 2. `docker compose -f docker-compose.prod.yml logs invoiceguard > server.log`, then `invoiceguard trace server.log --request-id <id>`.
 3. Wrong reading: with the customer's permission, `invoiceguard show --tenant <id> --document <first 8+ characters>`. If a wrong invoice passed unflagged, fix it through review, then with their written permission `invoiceguard export-case ... --permission-confirmed` and rerun `invoiceguard eval`.
 
-## 10. Onboarding a customer's backlog
-`invoiceguard process-folder /path/to/their/pdfs --tenant <id>` shows how many documents will be sent and asks for `--yes` (it uses paid quota). It reads three at a time (`--concurrency`, 1 to 8), stops by itself if the customer's monthly limit is reached, and is safe to run again: files already read are free. Add `--report result.csv` for a per-file list. Then have the customer's reviewer work through "Needs review".
+## 9. Importing a backlog
+`invoiceguard process-folder /path/to/their/pdfs --tenant <id>` shows how many documents will be sent and asks for `--yes` (each new file is one provider call). It reads three at a time (`--concurrency`, 1 to 8), stops by itself if the customer's monthly limit is reached, and is safe to run again: files already read are skipped. Add `--report result.csv` for a per-file list. Then have the customer's reviewer work through "Needs review".
 
-## 11. Monitoring
+## 10. Monitoring
 Scrape `/admin/metrics` from the server itself (the production proxy hides `/admin` from the internet unless you set `ADMIN_ALLOW`), for example `docker compose exec invoiceguard python -c "import urllib.request,os;r=urllib.request.Request('http://127.0.0.1:8000/admin/metrics',headers={'X-Admin-Token':os.environ['INVOICEGUARD_ADMIN_TOKEN']});print(urllib.request.urlopen(r).read().decode())"` (untested here).
 Worth alerting on:
 | Metric | Why |
 |---|---|
 | `/readyz` not 200 | The service cannot read its data |
-| `invoiceguard_errors_total{code="extraction_failed"}` rising | The AI provider is failing or your key or credit is out |
+| `invoiceguard_errors_total{code="extraction_failed"}` rising | The extraction provider is failing or your key or credit is out |
 | `invoiceguard_errors_total{code="server_busy"}` rising | More simultaneous uploads than `INVOICEGUARD_MAX_CONCURRENT_READS` |
 | `invoiceguard_errors_total{code="rate_limited"}` rising | A client is misbehaving or someone is guessing keys |
 | `invoiceguard_http_requests_total{status_class="5xx"}` rising | A bug: use the request id with `invoiceguard trace` |
 | `invoiceguard_invoices_total{result="needs_review"}` share rising | Reading quality changed: run `invoiceguard eval` |
 
-## 12. Updating dependencies
+## 11. Updating dependencies
 `make constraints` regenerates `constraints.txt` from fresh installs; run `make test ui-test`, then `pip-audit -r constraints.txt`, then commit. CI runs the audit on every push.
 
-## 13. Production checklist
+## 12. Production checklist
 
 Steps for a server you control. This repository does not start that server, obtain a certificate, or copy backups off the machine.
 
