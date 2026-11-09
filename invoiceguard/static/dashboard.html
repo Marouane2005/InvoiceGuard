@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>InvoiceGuard</title>
+  <link rel="stylesheet" href="/assets/dashboard.css">
+</head>
+<body>
+  <header class="bar">
+    <h1>InvoiceGuard</h1>
+    <form id="keyform" class="keyform">
+      <label for="key">API key</label>
+      <input id="key" name="key" type="password" autocomplete="off" required>
+      <button class="btn primary" type="submit">Sign in</button>
+    </form>
+    <button id="signout" class="btn" type="button" hidden>Sign out</button>
+  </header>
+
+  <p id="status" role="status"></p>
+
+  <main id="app" hidden>
+    <aside class="queue" aria-label="Invoices">
+      <div class="queue-head">
+        <div class="tabs" role="tablist" aria-label="Views">
+          <button id="tab-review" class="tab" role="tab" type="button" aria-selected="true" aria-controls="panel-review">Needs review <span id="count"></span></button>
+          <button id="tab-all" class="tab" role="tab" type="button" aria-selected="false" aria-controls="panel-all">All invoices</button>
+        </div>
+        <input id="file" type="file" multiple accept="application/pdf,image/png,image/jpeg,image/gif,image/webp" hidden>
+        <button id="upload" class="btn primary" type="button">Upload invoices</button>
+      </div>
+      <ul id="uploads" class="uploads" aria-live="polite"></ul>
+
+      <div id="panel-review" role="tabpanel" aria-labelledby="tab-review">
+        <ul id="list" class="list"></ul>
+        <p id="empty" class="empty" hidden>Nothing to review. Upload invoices to get started.</p>
+      </div>
+
+      <div id="panel-all" role="tabpanel" aria-labelledby="tab-all" hidden>
+        <div class="filters">
+          <label>Search<input id="q" type="search" placeholder="Vendor, number or file name" maxlength="100"></label>
+          <label>Show
+            <select id="statusfilter">
+              <option value="">Everything</option>
+              <option value="clean">No problems found</option>
+              <option value="needs_review">Needs review</option>
+              <option value="reviewed">Checked by a person</option>
+              <option value="dismissed">Rejected</option>
+            </select>
+          </label>
+        </div>
+        <ul id="all-list" class="list"></ul>
+        <p id="all-empty" class="empty" hidden>No invoices match.</p>
+        <button id="more" class="btn" type="button" hidden>Show more</button>
+      </div>
+
+      <button id="export" class="btn" type="button">Download accounting CSV</button>
+    </aside>
+    <section id="detail" class="detail" aria-live="polite">
+      <p class="empty">Pick an invoice from the list to compare it with the original.</p>
+    </section>
+  </main>
+  <script src="/assets/dashboard.js"></script>
+</body>
+</html>

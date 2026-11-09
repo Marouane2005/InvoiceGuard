@@ -1,0 +1,21 @@
+# Caddy obtains and renews the HTTPS certificate for {$DOMAIN} automatically.
+# Requirements: DNS A/AAAA record for the domain points at this server; ports 80 and 443 are open.
+{$DOMAIN} {
+	encode gzip
+	request_body {
+		max_size 12MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Frame-Options "DENY"
+		-Server
+	}
+	# /admin (customer accounts, metrics) answers 404 to everyone except ADMIN_ALLOW (default: this server only).
+	# Set ADMIN_ALLOW in .env to your own address(es), space separated, to use it from your laptop.
+	@admin_denied {
+		path /admin/*
+		not remote_ip {$ADMIN_ALLOW:127.0.0.1}
+	}
+	respond @admin_denied 404
+	reverse_proxy invoiceguard:8000
+}

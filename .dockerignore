@@ -1,0 +1,17 @@
+.git
+.github
+data
+backups
+eval_cases
+tests
+bench
+docs
+legal
+node_modules
+__pycache__
+*.pyc
+.pytest_cache
+.env
+*.db
+*.db-wal
+*.db-shm
