@@ -8,7 +8,7 @@ from .config import Settings
 
 
 def welcome_message(name: str, base_url: str, currency: Optional[str], monthly_limit: Optional[int]) -> str:
-    plan = f"up to {monthly_limit} invoices per month" if monthly_limit is not None else "no monthly invoice limit"
+    limit = f"up to {monthly_limit} invoices per month" if monthly_limit is not None else "no monthly invoice limit"
     cur = f"Default currency: {currency}." if currency else "No default currency is set, so invoices without a clear currency will be sent to review."
     return (f"Subject: Your InvoiceGuard account is ready\n\nHello {name} team,\n\n"
             "Your InvoiceGuard account is ready.\n\n"
@@ -16,7 +16,7 @@ def welcome_message(name: str, base_url: str, currency: Optional[str], monthly_l
             "2. Upload an invoice. Anything doubtful appears under \"Needs review\" with the reason.\n"
             "3. Check the numbers against the original, correct anything wrong, and choose \"Save corrections and resolve\".\n"
             "4. Download checked invoices as a CSV whenever you need them.\n\n"
-            f"Your plan: {plan}. {cur}\n\n"
+            f"Monthly limit: {limit}. {cur}\n\n"
             "Nothing is paid or sent on your behalf. A person confirms every doubtful invoice.\n"
             "Anyone with the access key can see your invoices, so please keep it in a password manager.\n")
 

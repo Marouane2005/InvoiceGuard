@@ -49,7 +49,7 @@ def test_erase_is_a_dry_run_unless_confirmed(settings, control, make_tenant):
     assert pipeline.tenant_dir(settings, tenant["id"]).exists() and tenants.get_tenant(control, tenant["id"])["active"] == 1
 
 
-def test_confirmed_erase_removes_content_switches_the_account_off_and_keeps_billing_counts(settings, control, make_tenant):
+def test_confirmed_erase_removes_content_switches_the_account_off_and_keeps_usage_counts(settings, control, make_tenant):
     tenant, key = processed(settings, make_tenant)
     out = pipeline.erase_tenant(settings, control, tenant["id"], confirm=True)
     assert out["dry_run"] is False and out["documents"] == 1 and out["account_active"] is False

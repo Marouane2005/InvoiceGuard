@@ -136,9 +136,7 @@ def main() -> int:
             rs = cli(env, "restore", archive, "--into", str(tmp / "restored"))
             step("restore into an empty folder works", rs.returncode == 0 and json.loads(rs.stdout)["tenants"] == 1, rs.stderr)
             step("restore refuses to overwrite", cli(env, "restore", archive, "--into", str(tmp / "restored")).returncode == 2)
-            eco = cli(env, "economics", "--input-price-per-mtok", "3", "--output-price-per-mtok", "15")
-            step("economics prices from measured usage", eco.returncode == 0 and json.loads(eco.stdout)["customers"][0]["documents"] == 2)
-            step("billing CSV lists the customer", "Rehearsal Co" in cli(env, "usage", "--csv").stdout)
+            step("usage CSV lists the customer", "Rehearsal Co" in cli(env, "usage", "--csv").stdout)
 
             tid = created.json()["tenant"]["id"]
             tpl = tmp / "template.json"
@@ -172,11 +170,9 @@ def main() -> int:
             step("change feed pages through every invoice exactly once", len(ids) == 2 and third["invoices"] == [])
             metrics = httpx.get(f"{base}/admin/metrics", headers=admin).text
             step("metrics count the work done", 'invoiceguard_invoices_total{result="clean"} 1' in metrics and 'invoiceguard_invoices_total{result="needs_review"} 1' in metrics)
-            bill = cli(env, "billing", "--price-per-document", "0.25", "--included", "1", "--base-fee", "20", "--currency", "usd")
             rot = httpx.post(f"{base}/v1/settings/rotate-key", headers=h).json()
             step("a customer can replace their own key", httpx.get(f"{base}/v1/usage", headers=h).status_code == 401
                  and httpx.get(f"{base}/v1/usage", headers={"Authorization": f"Bearer {rot['api_key']}"}).status_code == 200)
-            step("billing drafts exact statements (nothing is sent)", bill.returncode == 0 and json.loads(bill.stdout)["statements"][0]["total"] == "20.25", bill.stdout)
         finally:
             server.terminate()
             server.wait(10)

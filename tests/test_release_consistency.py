@@ -36,9 +36,6 @@ def test_deploy_files_exist_and_agree():
     assert "DOMAIN:?set DOMAIN in .env" in compose
     assert "reverse_proxy invoiceguard:8000" in (ROOT / "deploy" / "Caddyfile").read_text()
     assert "/readyz" in (ROOT / "Dockerfile").read_text()
-    for name in ("TERMS_OF_SERVICE", "PRIVACY_POLICY", "DATA_PROCESSING_AGREEMENT"):
-        text = (ROOT / "legal" / f"{name}.template.md").read_text()
-        assert "not legal advice" in text and "[" in text
 
 
 def test_runtime_and_dev_dependencies_are_pinned_exactly():

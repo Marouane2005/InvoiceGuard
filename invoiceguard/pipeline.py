@@ -91,7 +91,7 @@ def process_document(*, settings: Settings, tenant: dict, data: bytes, filename:
 
     with closing(open_tenant_db(settings, tenant["id"])) as tconn:
         existing = store.get_invoice(tconn, document_id)
-        if existing:  # same file uploaded before: no second model call, no second charge
+        if existing:  # same file uploaded before: no second model call
             return _result(tconn, existing, cached=True)
 
         with closing(tenants.open_control(control_path(settings))) as cconn:
@@ -182,7 +182,7 @@ def build_extractor(settings: Settings):
 def erase_tenant(settings: Settings, control_conn, tenant_id: str, confirm: bool = False) -> dict:
     """Remove ALL of one customer's invoices, files and review items, and switch the account off.
 
-    Dry run unless confirm=True. Usage counts (no invoice content) are kept so billing records stay intact.
+    Dry run unless confirm=True. Usage counts (no invoice content) are kept so usage records stay intact.
     """
     import shutil
     tenant = tenants.get_tenant(control_conn, tenant_id)

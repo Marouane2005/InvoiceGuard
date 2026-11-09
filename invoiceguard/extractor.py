@@ -1,7 +1,8 @@
-"""Reads one invoice (PDF or image) with Claude and returns structured data.
+"""Optional LLM-based extraction provider (Anthropic Messages API): reads one invoice (PDF or image)
+and returns structured data.
 
-Claude does the reading (including OCR of scans). It is never asked to do the arithmetic check;
-validator.py does that deterministically.
+The provider does the reading (including OCR of scans). It is never asked to do the arithmetic check;
+validator.py does that deterministically. Use INVOICEGUARD_READER=local to run without it.
 """
 from __future__ import annotations
 

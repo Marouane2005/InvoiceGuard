@@ -1,39 +1,10 @@
 import json
 from contextlib import closing
-from decimal import Decimal
 
 import pytest
 
-from invoiceguard import billing, cases, cli, pipeline, store, tenants
+from invoiceguard import cases, cli, pipeline, store, tenants
 from conftest import BAD_RAW, GOOD_RAW, FakeExtractor, pdf
-
-
-# ---- billing --------------------------------------------------------------------------------------------
-ROWS = [{"id": "t_1", "name": "Acme", "month": "2026-10", "documents": 130},
-        {"id": "t_2", "name": "Quiet Co", "month": "2026-10", "documents": 0},
-        {"id": "t_3", "name": "Small", "month": "2026-10", "documents": 40}]
-
-
-def test_statements_use_exact_decimal_money():
-    out = billing.draft_statements(ROWS, Decimal("0.50"), included_documents=100, base_fee=Decimal("20"), currency="EUR")
-    acme, quiet, small = out
-    assert (acme["billable_documents"], acme["usage_charge"], acme["total"]) == (30, "15.00", "35.00")
-    assert (quiet["billable_documents"], quiet["total"]) == (0, "20.00")       # a quiet customer still owes the base fee
-    assert (small["billable_documents"], small["total"]) == (0, "20.00") and acme["currency"] == "EUR"
-
-
-def test_rounding_is_half_up_not_floating_point():
-    row = [{"id": "t", "name": "A", "month": "m", "documents": 3}]
-    assert billing.draft_statements(row, Decimal("0.333"))[0]["usage_charge"] == "1.00"      # 0.999
-    assert billing.draft_statements(row, Decimal("0.835"), included_documents=2)[0]["usage_charge"] == "0.84"  # 0.835 -> .84
-
-
-@pytest.mark.parametrize("bad", ["abc", "-1", "NaN", "Infinity", ""])
-def test_bad_amounts_are_rejected(bad):
-    with pytest.raises(ValueError):
-        billing.parse_amount(bad, "--price-per-document")
-    with pytest.raises(ValueError):
-        billing.draft_statements(ROWS, Decimal(1), included_documents=-1)
 
 
 @pytest.fixture
@@ -48,17 +19,10 @@ def create(capsys, name="Acme"):
     return json.loads(capsys.readouterr().out)["tenant"]["id"]
 
 
-def test_billing_command_drafts_and_never_sends(env, capsys):
+def test_usage_csv_neutralises_formula_names(env, capsys):
     create(capsys, "=cmd|calc")
-    assert cli.main(["billing", "--price-per-document", "0.25", "--base-fee", "10", "--currency", "usd"]) == 0
-    out = json.loads(capsys.readouterr().out)
-    assert "Draft only" in out["note"] and out["statements"][0]["total"] == "10.00" and out["statements"][0]["currency"] == "USD"
-    assert cli.main(["billing", "--price-per-document", "0.25", "--csv"]) == 0
-    captured = capsys.readouterr()
-    assert "'=cmd" in captured.out and "Draft only" in captured.err
-    for bad in (["--price-per-document", "x"], ["--price-per-document", "1", "--currency", "dollars"], ["--price-per-document", "1", "--included", "-1"]):
-        assert cli.main(["billing", *bad]) == 2
-    capsys.readouterr()
+    assert cli.main(["usage", "--csv"]) == 0
+    assert "'=cmd" in capsys.readouterr().out
 
 
 # ---- support: show, export-case, trace ------------------------------------------------------------------
@@ -217,7 +181,7 @@ def test_folder_run_needs_yes_then_reads_everything_and_is_free_to_repeat(env, c
     assert reader.calls == 5 and len(report.read_text().strip().splitlines()) == 6
 
     assert cli.main(["process-folder", str(d), "--tenant", tid, "--yes"]) == 0
-    assert json.loads(capsys.readouterr().out)["cached"] == 5 and reader.calls == 5      # nothing was sent or charged again
+    assert json.loads(capsys.readouterr().out)["cached"] == 5 and reader.calls == 5      # nothing was sent again
 
 
 def test_folder_run_stops_when_the_quota_is_used_up(env, capsys, monkeypatch):

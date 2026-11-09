@@ -14,7 +14,7 @@ from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import backup, billing, cases, doctor, economics, evaluation, exports, onboarding, pipeline, store, tenants, validator
+from . import backup, cases, doctor, evaluation, exports, onboarding, pipeline, store, tenants, validator
 from .config import ConfigError, Settings
 from .errors import PipelineError
 
@@ -101,8 +101,8 @@ def cmd_process_folder(args, settings) -> int:
     if not files:
         return _err("no PDF or image files found in that folder")
     if not args.yes:
-        print(f"This will send up to {len(files)} document(s) to the AI provider and use paid quota "
-              "(files already processed are free). Add --yes to run.", file=sys.stderr)
+        print(f"This will send up to {len(files)} document(s) to the extraction provider and count toward "
+              "the customer's monthly limit (files already processed are not read again). Add --yes to run.", file=sys.stderr)
         return 2
     extractor, stop = pipeline.build_extractor(settings), threading.Event()
 
@@ -132,7 +132,7 @@ def cmd_process_folder(args, settings) -> int:
     _print({"folder": str(folder), "files": len(files), **summary, "failures": [r for r in rows if r["result"] == "failed"],
             "report": args.report})
     if summary["skipped"]:
-        print("Stopped early: the customer's quota is used up or reading is not configured. Fix that and run the same command again; finished files are free.", file=sys.stderr)
+        print("Stopped early: the customer's quota is used up or reading is not configured. Fix that and run the same command again; finished files are not read again.", file=sys.stderr)
     return 1 if summary["failed"] or summary["skipped"] else 0
 
 
@@ -150,41 +150,6 @@ def cmd_usage(args, settings) -> int:
         writer.writerow([r["id"], store._safe_cell(r["name"]), r["month"], r["documents"], r["input_tokens"],
                          r["output_tokens"], "" if r["monthly_limit"] is None else r["monthly_limit"]])
     print(out.getvalue(), end="")
-    return 0
-
-
-def cmd_economics(args, settings) -> int:
-    with _control(settings) as control:
-        try:
-            rows = economics.report(tenants.usage_all(control, args.month or tenants.current_month()),
-                                    args.input_price_per_mtok, args.output_price_per_mtok, args.target_margin)
-        except ValueError as exc:
-            return _err(str(exc))
-    _print({"note": "Provider cost only. Add hosting, support and payment fees before setting prices.", "customers": rows})
-    return 0
-
-
-def cmd_billing(args, settings) -> int:
-    try:
-        price = billing.parse_amount(args.price_per_document, "--price-per-document")
-        base = billing.parse_amount(args.base_fee, "--base-fee")
-        currency = tenants.validate_currency(args.currency)
-        with _control(settings) as control:
-            rows = tenants.usage_all(control, args.month or tenants.current_month())
-        statements = billing.draft_statements(rows, price, args.included, base, currency)
-    except ValueError as exc:
-        return _err(str(exc))
-    if not args.csv:
-        _print({"note": billing.NOTE, "statements": statements})
-        return 0
-    out = io.StringIO()
-    writer = csv.writer(out)
-    writer.writerow(["customer_id", "customer", "month", "documents", "included", "billable_documents", "base_fee", "usage_charge", "total", "currency"])
-    for r in statements:
-        writer.writerow([r["customer_id"], store._safe_cell(r["customer"]), r["month"], r["documents"], r["included"],
-                         r["billable_documents"], r["base_fee"], r["usage_charge"], r["total"], r["currency"]])
-    print(out.getvalue(), end="")
-    print(billing.NOTE, file=sys.stderr)
     return 0
 
 
@@ -350,7 +315,7 @@ def cmd_eval(args, settings) -> int:
     if not cases:
         return _err("no labelled invoices found (each file needs a matching <name>.expected.json)")
     if not args.yes:
-        print(f"This will send {len(cases)} document(s) to the AI provider and use paid API quota. Add --yes to run.", file=sys.stderr)
+        print(f"This will send {len(cases)} document(s) to the extraction provider and use API quota. Add --yes to run.", file=sys.stderr)
         return 2
     result = evaluation.evaluate(cases, pipeline.build_extractor(settings), args.currency)
     if args.out:
@@ -381,7 +346,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("path")
     s.add_argument("--tenant", required=True)
 
-    s = sub.add_parser("process-folder", help="read every PDF/image in a folder for a customer (uses paid quota; safe to run again)")
+    s = sub.add_parser("process-folder", help="read every PDF/image in a folder for a customer (counts toward the monthly limit; safe to run again)")
     s.add_argument("folder")
     s.add_argument("--tenant", required=True)
     s.add_argument("--concurrency", type=int, default=3, help="documents read at the same time (1 to 8)")
@@ -390,21 +355,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("usage", help="documents and tokens per customer for a month")
     s.add_argument("--month", default=None, help="YYYY-MM, default this month")
-    s.add_argument("--csv", action="store_true", help="print CSV for invoicing your customers")
-
-    s = sub.add_parser("economics", help="provider cost per invoice and the price that reaches a target margin")
-    s.add_argument("--month", default=None)
-    s.add_argument("--input-price-per-mtok", type=float, required=True, help="dollars per million input tokens (provider price list)")
-    s.add_argument("--output-price-per-mtok", type=float, required=True, help="dollars per million output tokens")
-    s.add_argument("--target-margin", type=float, default=0.8, help="for example 0.8 for 80 percent (default)")
-
-    s = sub.add_parser("billing", help="draft monthly statements per customer from usage (drafts only; nothing is sent or charged)")
-    s.add_argument("--month", default=None, help="YYYY-MM, default this month")
-    s.add_argument("--price-per-document", required=True, help="price per billable document, e.g. 0.25")
-    s.add_argument("--included", type=int, default=0, help="documents included in the base fee")
-    s.add_argument("--base-fee", default="0", help="fixed monthly fee per customer")
-    s.add_argument("--currency", default="USD")
-    s.add_argument("--csv", action="store_true")
+    s.add_argument("--csv", action="store_true", help="print CSV")
 
     s = sub.add_parser("show", help="print one stored invoice, its issues and review state (customer data)")
     s.add_argument("--tenant", required=True)
@@ -450,9 +401,9 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("doctor", help="check this installation before going live")
     s.add_argument("--backup-dir", default=os.environ.get("INVOICEGUARD_BACKUP_DIR") or None,
                    help="check that a recent backup exists here (default: $INVOICEGUARD_BACKUP_DIR)")
-    s.add_argument("--online", action="store_true", help="also check that the AI provider can be reached")
+    s.add_argument("--online", action="store_true", help="also check that the extraction provider can be reached")
 
-    s = sub.add_parser("eval", help="measure accuracy on your own labelled invoices (uses paid API quota)")
+    s = sub.add_parser("eval", help="measure accuracy on your own labelled invoices (sends documents to the configured reader)")
     s.add_argument("--dir", required=True, help="folder of invoices, each with <name>.expected.json")
     s.add_argument("--out", default=None, help="write a markdown report here")
     s.add_argument("--currency", default=None, help="default currency to apply, like a customer setting")
@@ -462,8 +413,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 HANDLERS = {"serve": cmd_serve, "create-tenant": cmd_create_tenant, "onboard": cmd_onboard, "process": cmd_process,
-            "usage": cmd_usage, "economics": cmd_economics, "purge": cmd_purge, "erase-tenant": cmd_erase_tenant,
-            "backup": cmd_backup, "doctor": cmd_doctor, "eval": cmd_eval, "billing": cmd_billing, "show": cmd_show,
+            "usage": cmd_usage, "purge": cmd_purge, "erase-tenant": cmd_erase_tenant,
+            "backup": cmd_backup, "doctor": cmd_doctor, "eval": cmd_eval, "show": cmd_show,
             "export-case": cmd_export_case, "set-export-template": cmd_set_export_template,
             "process-folder": cmd_process_folder}
 

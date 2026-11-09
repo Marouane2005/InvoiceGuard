@@ -62,7 +62,7 @@ def test_monthly_quota_blocks_new_files_but_not_repeats(settings, make_tenant):
     assert run(settings, tenant, ex, pdf(1))["cached"]
 
 
-def test_failed_reading_stores_nothing_and_charges_nothing(settings, make_tenant):
+def test_failed_reading_stores_nothing_and_counts_nothing(settings, make_tenant):
     tenant, _ = make_tenant()
     with pytest.raises(PipelineError) as err:
         run(settings, tenant, FakeExtractor(ExtractionError("the AI provider returned HTTP 503")), pdf(1))

@@ -1,12 +1,14 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "invoiceguard"
 version = "1.4.2"
-description = "Invoice extraction with deterministic checks and a human review queue, for small and mid-size businesses."
+description = "Open-source invoice extraction with deterministic checks and a human review queue."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.110",
