@@ -1,0 +1,21 @@
+name: Feature request
+description: Something customers need that is missing
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Which customer needs this, and what are they trying to do
+    validations:
+      required: true
+  - type: dropdown
+    id: blocks
+    attributes:
+      label: Does it block a sale or a renewal?
+      options: ["No", "Yes, a sale", "Yes, a renewal"]
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What do they do today instead

@@ -1,0 +1,27 @@
+{
+  "invoice_metadata": {
+    "vendor_name": "ACME Supplies Ltd",
+    "invoice_number": "SMK-1001",
+    "issue_date": "2025-03-01",
+    "due_date": "2025-03-31",
+    "currency": "USD"
+  },
+  "line_items": [
+    {
+      "quantity": 4,
+      "unit_price": 25.0,
+      "total_amount": 100.0
+    },
+    {
+      "quantity": 2,
+      "unit_price": 10.0,
+      "total_amount": 20.0
+    }
+  ],
+  "financial_summary": {
+    "subtotal": 120.0,
+    "tax_amount": 12.0,
+    "grand_total": 132.0
+  },
+  "ocr_warnings": []
+}

@@ -1,0 +1,81 @@
+name: ci
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -c constraints.txt -e ".[dev]"
+      - run: python scripts/export_openapi.py --check
+      - run: python -m pytest -q
+      - run: node --check invoiceguard/static/dashboard.js
+      - name: dashboard tests (real DOM against the real server)
+        run: |
+          cd tests/ui && npm ci && cd ../..
+          node --test tests/ui/dashboard.test.js
+      - run: pip install . && python scripts/release_smoke.py
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: lint the workflows (actionlint) and the Dockerfile (hadolint)
+        run: |
+          tag=$(curl -sI https://github.com/rhysd/actionlint/releases/latest | tr -d '\r' | awk -F/ '/^[Ll]ocation:/ {print $NF}')
+          curl -sL -o actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/${tag}/actionlint_${tag#v}_linux_amd64.tar.gz"
+          tar xzf actionlint.tgz actionlint
+          ./actionlint -color=false .github/workflows/*.yml
+          curl -sL -o hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+          chmod +x hadolint
+          ./hadolint Dockerfile
+  proxy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -c constraints.txt -e ".[dev]"
+      - name: the real Caddy in front of the real server
+        run: |
+          tag=$(curl -sI https://github.com/caddyserver/caddy/releases/latest | tr -d '\r' | awk -F/ '/^[Ll]ocation:/ {print $NF}')
+          curl -sL -o caddy.tgz "https://github.com/caddyserver/caddy/releases/download/${tag}/caddy_${tag#v}_linux_amd64.tar.gz"
+          tar xzf caddy.tgz caddy
+          python scripts/proxy_check.py --caddy ./caddy
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit && pip-audit -r constraints.txt
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t invoiceguard:ci .
+      - name: image starts and reports ready
+        run: |
+          docker run -d --name ig -p 8000:8000 invoiceguard:ci
+          for _ in $(seq 1 20); do
+            if curl -fs localhost:8000/readyz; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fs localhost:8000/readyz
+          curl -fs localhost:8000/ | grep -q InvoiceGuard
+          docker stop ig

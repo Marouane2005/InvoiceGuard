@@ -1,0 +1,70 @@
+# Production: HTTPS on your own domain. Only Caddy is reachable from the internet.
+#   cp .env.example .env   (fill it in, including DOMAIN)
+#   docker compose -f docker-compose.prod.yml run --rm invoiceguard invoiceguard doctor
+#   docker compose -f docker-compose.prod.yml up -d --build
+services:
+  invoiceguard:
+    build: .   # or: image: ghcr.io/marouane2005/invoiceguard:<version>  (see docs/GITHUB_SETUP.md)
+    env_file: .env
+    environment:
+      INVOICEGUARD_DATA_DIR: /data
+      INVOICEGUARD_TRUST_PROXY: "1"
+      INVOICEGUARD_BACKUP_DIR: /backups
+      # Empty DOMAIN stops this file before a container starts. A set INVOICEGUARD_PUBLIC_URL wins.
+      INVOICEGUARD_PUBLIC_URL: ${INVOICEGUARD_PUBLIC_URL:-https://${DOMAIN:?set DOMAIN in .env}}
+    expose:
+      - "8000"
+    volumes:
+      - invoiceguard-data:/data
+      - ./backups:/backups
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+  # Same-machine copies only. Keeps BACKUP_KEEP archives (default 14) under ./backups.
+  # Runs as root because a fresh bind mount is root-owned and the image user cannot create files there.
+  # Nothing in this service copies those files off the machine or sends an alert.
+  backup:
+    build: .
+    user: "0:0"
+    env_file: .env
+    environment:
+      INVOICEGUARD_DATA_DIR: /data
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_EMPTY_RETRY_SECONDS: ${BACKUP_EMPTY_RETRY_SECONDS:-60}
+      BACKUP_FAILURE_RETRY_SECONDS: ${BACKUP_FAILURE_RETRY_SECONDS:-300}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      INVOICEGUARD_OFFSITE_BACKUP_DIR: ${INVOICEGUARD_OFFSITE_BACKUP_DIR:-}
+      INVOICEGUARD_MONITOR_URL: ${INVOICEGUARD_MONITOR_URL:-}
+    volumes:
+      - invoiceguard-data:/data
+      - ./backups:/backups
+    depends_on:
+      - invoiceguard
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    entrypoint: ["sh", "-c", "while true; do invoiceguard backup --dest /backups --keep \"$${BACKUP_KEEP}\"; code=$$?; if [ $$code -eq 0 ]; then sleep \"$${BACKUP_INTERVAL_SECONDS}\"; elif [ $$code -eq 2 ]; then sleep \"$${BACKUP_EMPTY_RETRY_SECONDS:-60}\"; else echo 'BACKUP FAILED' >&2; sleep \"$${BACKUP_FAILURE_RETRY_SECONDS:-300}\"; fi; done"]
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      invoiceguard:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ADMIN_ALLOW: ${ADMIN_ALLOW:-127.0.0.1}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+volumes:
+  invoiceguard-data:
+  caddy-data:
+  caddy-config:

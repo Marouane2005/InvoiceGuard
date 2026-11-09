@@ -1,0 +1,36 @@
+name: Bug report
+description: Something does not work as described
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Never paste customer invoices, API keys, or tokens here. The request id and error code are enough."
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: request_id
+    attributes:
+      label: Request id (the X-Request-ID header), if there is one
+  - type: input
+    id: version
+    attributes:
+      label: InvoiceGuard version
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: I removed customer data, keys, and tokens from everything I pasted
+          required: true

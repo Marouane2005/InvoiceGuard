@@ -1,0 +1,19 @@
+services:
+  invoiceguard:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      INVOICEGUARD_DATA_DIR: /data
+      # Demo default. Put INVOICEGUARD_READER=claude and ANTHROPIC_API_KEY in .env to use the hosted LLM reader.
+      INVOICEGUARD_READER: ${INVOICEGUARD_READER:-local}
+      # Empty unless you export one. There is no default admin password.
+      INVOICEGUARD_ADMIN_TOKEN: ${INVOICEGUARD_ADMIN_TOKEN:-}
+    ports:
+      - "127.0.0.1:${INVOICEGUARD_HOST_PORT:-8000}:8000"   # host port only. Put TLS in front before exposing this
+    volumes:
+      - invoiceguard-data:/data
+    restart: unless-stopped
+volumes:
+  invoiceguard-data:

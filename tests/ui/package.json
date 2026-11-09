@@ -1,0 +1,7 @@
+{
+  "name": "invoiceguard-dashboard-tests",
+  "private": true,
+  "description": "Drives the real dashboard script in a DOM against the real server.",
+  "scripts": { "test": "node --test ." },
+  "devDependencies": { "jsdom": "^24.1.3" }
+}
